@@ -1,7 +1,10 @@
 # coding=utf-8
+import logging
 import time
 from pprint import pprint
 from zapv2 import ZAPv2
+
+from libs.cli_output import console
 
 
 class ZapBlock:
@@ -464,15 +467,28 @@ class ZapBlock:
                         time.sleep(5)
                 print('Ajax Spider scan completed')
 
-            # Launch Active scan with the configured policy on the target url and
-            # recursively scan every site node
-            scanId = zap.ascan.scan(url=self.target, recurse=True, inscopeonly=None,
-                                    scanpolicyname=self.scanPolicyName, method=None, postdata=True)
-            print('Start Active scan. Scan ID equals ' + scanId)
-            while int(ascan.status(scanId)) < 100:
-                print('Active Scan progress: ' + ascan.status(scanId) + '%')
-                time.sleep(5)
-            print('Active Scan completed')
+            try:
+                # Launch Active scan with the configured policy on the target url and
+                # recursively scan every site node
+                scanId = zap.ascan.scan(url=self.target, recurse=True, inscopeonly=None,
+                                        scanpolicyname=self.scanPolicyName, method=None, postdata=True,
+                                        apikey=self.apiKey)
+                print('Start Active scan. Scan ID equals ' + scanId)
+
+                if 'url_not_found' == str(scanId):
+                    console(__name__, "abort Active Scan")
+                    pass
+                else:
+                    while int(ascan.status(scanId)) < 100:
+                        print('Active Scan progress: ' + ascan.status(scanId) + '%')
+                        time.sleep(5)
+                    print('Active Scan completed')
+
+            except Exception as e:
+                logging.exception(e)
+                console(__name__, "Active Scan exception", str(e))
+
+
 
         # Give the passive scanner a chance to finish
         time.sleep(5)
