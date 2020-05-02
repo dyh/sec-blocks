@@ -1,8 +1,6 @@
 # coding=utf-8
 import time
-
 import pyfiglet
-
 from libs.bcolors import Bcolors
 
 

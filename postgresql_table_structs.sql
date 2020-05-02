@@ -1,4 +1,6 @@
 /*
+ Navicat Premium Data Transfer
+
  Source Server         : 127.0.0.1
  Source Server Type    : PostgreSQL
  Source Server Version : 120002
@@ -10,7 +12,7 @@
  Target Server Version : 120002
  File Encoding         : 65001
 
- Date: 29/03/2020 15:53:02
+ Date: 02/05/2020 22:21:19
 */
 
 
@@ -183,7 +185,7 @@ SELECT setval('"public"."ports_list_id_seq"', 2619, true);
 -- ----------------------------
 ALTER SEQUENCE "public"."websites_detail_id_seq"
 OWNED BY "public"."websites_detail"."id";
-SELECT setval('"public"."websites_detail_id_seq"', 5, true);
+SELECT setval('"public"."websites_detail_id_seq"', 994, true);
 
 -- ----------------------------
 -- Primary Key structure for table domains_list

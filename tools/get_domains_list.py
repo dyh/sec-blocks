@@ -1,8 +1,9 @@
 # coding=utf-8
+import time
 from config import Config
 from libs.cli_output import console_progress
-from libs.psqldb import Psqldb
 from libs.cli_output import console
+from libs.sqldb import Sqldb
 
 '''txt文件格式 targets.txt
  {"name": "x公司", "url": "https://www.butian.net/Loo/submit?cid=x", "domain2ip": {
@@ -17,14 +18,9 @@ class GetDomainsList:
     def __init__(self, txt_filename=""):
         # 将要读取的文本文件路径
         self.txt_filename = txt_filename
-
-        self.database = Config.database_local
-        self.user = Config.user_local
-        self.password = Config.password_local
-        self.host = Config.host_local
-        self.port = Config.port_local
-        self.table_name = Config.domains_table_name_local
-        console(__name__, self.database, self.table_name)
+        self.database_name = Config.database_name
+        self.table_name = Config.domains_table_name
+        console(__name__, self.database_name, self.table_name)
         pass
 
     # 统计文件行数
@@ -41,12 +37,12 @@ class GetDomainsList:
         return total
 
     def run(self):
+        console(__name__, "connecting", self.database_name)
         # 查询数据用
-        sqldb_query = Psqldb(database=self.database, user=self.user,
-                             password=self.password, host=self.host, port=self.port)
+        sqldb_query = Sqldb(self.database_name)
         # 更新数据用
-        sqldb_update = Psqldb(database=self.database, user=self.user,
-                              password=self.password, host=self.host, port=self.port)
+        sqldb_update = Sqldb(self.database_name)
+        console(__name__, "SQLite", "connected")
 
         # 当前行数
         row_index = 0
@@ -67,16 +63,21 @@ class GetDomainsList:
                 for key, value in dict_tmp["domain2ip"].items():
                     str_domain_name = str(key)
                     str_ip = str(value)
-                    sql_str = "SELECT domain FROM " + self.table_name + " WHERE domain=%s and org_name=%s LIMIT 1"
+                    sql_str = "SELECT domain FROM " + self.table_name + " WHERE domain=? and org_name=? LIMIT 1"
                     sql_value = (str_domain_name, str_org_name)
                     result_query = sqldb_query.fetchone(sql_str, sql_value)
 
+                    # 生成时间字符串
+                    datetime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                    # 如果有相同记录，则更新
                     if result_query and len(result_query) > 0:
-                        sql_str = "UPDATE " + self.table_name + " SET ips=%s WHERE domain=%s and org_name=%s"
-                        sql_value = (str_ip, str_domain_name, str_org_name)
+                        sql_str = "UPDATE " + self.table_name + " SET ips=?, time=? WHERE domain=? and org_name=?"
+                        sql_value = (str_ip, datetime, str_domain_name, str_org_name)
                     else:
-                        sql_str = "INSERT INTO " + self.table_name + " (domain,org_name,ips) VALUES (%s,%s,%s)"
-                        sql_value = (str_domain_name, str_org_name, str_ip)
+                        # 没有相同记录，则新增
+                        sql_str = "INSERT INTO " + self.table_name + " (domain,org_name,ips,time) VALUES (?,?,?,?)"
+                        sql_value = (str_domain_name, str_org_name, str_ip, datetime)
+
                     sqldb_update.execute_non_query(sql_str, sql_value)
                     console_progress(row_index, rows_total, __name__, str_org_name, str_domain_name)
 

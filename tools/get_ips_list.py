@@ -1,8 +1,9 @@
 # coding=utf-8
+import time
 from config import Config
 from libs.cli_output import console_progress
-from libs.psqldb import Psqldb
 from libs.cli_output import console
+from libs.sqldb import Sqldb
 
 '''txt文件格式 targets.txt
  {"name": "x公司", "url": "https://www.butian.net/Loo/submit?cid=x", "domain2ip": {
@@ -13,27 +14,22 @@ from libs.cli_output import console
 "192.168.1.x"]}} '''
 
 
-# 域名文本文件转到postgresql数据库，将ip存储到表ips_all
+# 域名文本文件转到sqlite数据库，将ip存储到表ips_all
 class GetIpsList:
     def __init__(self, txt_filename=""):
         # 将要读取的文本文件路径
         self.txt_filename = txt_filename
-
-        self.database = Config.database_local
-        self.user = Config.user_local
-        self.password = Config.password_local
-        self.host = Config.host_local
-        self.port = Config.port_local
-        self.table_name = Config.ips_table_name_local
-        console(__name__, self.database, self.table_name)
+        self.database_name = Config.database_name
+        self.table_name = Config.ips_table_name
+        console(__name__, self.database_name, self.table_name)
 
     def run(self):
+        console(__name__, "connecting", self.database_name)
         # 查询数据用
-        sqldb_query = Psqldb(database=self.database, user=self.user,
-                             password=self.password, host=self.host, port=self.port)
+        sqldb_query = Sqldb(self.database_name)
         # 更新数据用
-        sqldb_update = Psqldb(database=self.database, user=self.user,
-                              password=self.password, host=self.host, port=self.port)
+        sqldb_update = Sqldb(self.database_name)
+        console(__name__, "SQLite", "connected")
 
         # 当前行数
         row_index = 0
@@ -53,79 +49,31 @@ class GetIpsList:
                 str_org_name = dict_tmp["name"]
 
                 for key, value in dict_tmp["domain2ip"].items():
-                    # str_domain_name = str(key)
-                    # str_ip = str(value)
-
                     for ip_item in value:
                         str_ip = ip_item
-
-                        sql_str = "SELECT ID FROM " + self.table_name + " WHERE ip=%s LIMIT 1"
+                        sql_str = "SELECT ID FROM " + self.table_name + " WHERE ip=? LIMIT 1"
                         sql_value = (str_ip,)
                         result_query = sqldb_query.fetchone(sql_str, values=sql_value)
 
-                        if not result_query:
-                            sql_str = "INSERT INTO " + self.table_name + " (ip,org_name) VALUES (%s,%s)"
-                            sql_value = (str_ip, str_org_name)
+                        # 生成时间字符串
+                        datetime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+
+                        if result_query and len(result_query) > 0:
+                            sql_str = "UPDATE " + self.table_name + " SET org_name=?, time=? WHERE ip=?"
+                            sql_value = (str_org_name, datetime, str_ip)
                         else:
-                            sql_str = "UPDATE " + self.table_name + " SET org_name=%s WHERE ip=%s"
-                            sql_value = (str_org_name, str_ip)
+                            sql_str = "INSERT INTO " + self.table_name + " (ip,org_name,time) VALUES (?,?,?)"
+                            sql_value = (str_ip, str_org_name, datetime)
 
                         sqldb_update.execute_non_query(sql_str, values=sql_value)
                         sqldb_update.commit()
 
                         console_progress(row_index, rows_total, __name__, str_ip, str_org_name)
-
                 row_index = 1 + row_index
-
         f.close()
 
         sqldb_update.close()
         sqldb_query.close()
-
-    # '''
-    # ips_all表结构
-    # -- ----------------------------
-    # -- Table structure for ips_all
-    # -- ----------------------------
-    # CREATE TABLE IF NOT EXISTS "ips_all" (
-    #   "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-    #   "ip" text NOT NULL,
-    #   "domain" text,
-    #   "org_name" text,
-    #   "is_actived" integer,
-    #   "is_exploited" integer,
-    #   "open_ports" text,
-    #   "ports_info" text,
-    #   "time" text
-    # );
-    # '''
-    # def create_table_domains_all(self):
-    #     sqldb = Psqldb(database=self.database, user=self.user, password=self.password, host=self.host, port=self.port)
-    #
-    #     sql = """
-    #     CREATE TABLE IF NOT EXISTS "{}" (
-    #       "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-    #       "ip" text NOT NULL,
-    #       "domain" text,
-    #       "org_name" text,
-    #       "is_actived" integer,
-    #       "is_exploited" integer,
-    #       "open_ports" text,
-    #       "ports_info" text,
-    #       "time" text
-    #     );
-    #     """.format(self.table_name)
-    #
-    #     sqldb.execute_non_query(sql)
-    #     sqldb.commit()
-    #     sqldb.close()
-
-    # # 删除表
-    # def drop_table_domains_all(self):
-    #     sqldb = Psqldb(database=self.database, user=self.user, password=self.password, host=self.host, port=self.port)
-    #     sqldb.drop_table(self.table_name)
-    #     sqldb.commit()
-    #     sqldb.close()
 
     # 统计文件行数
     def get_file_rows_count(self):
@@ -137,5 +85,4 @@ class GetIpsList:
                     break
                 total = 1 + total
         f.close()
-
         return total

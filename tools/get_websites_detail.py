@@ -1,12 +1,10 @@
 # coding=utf-8
-import logging
-
-import psycopg2
-
+import time
 from blocks.zap_block import ZapBlock
 from config import Config
 from libs.cli_output import console, console_progress
-from libs.psqldb import Psqldb
+from libs.sqldb import Sqldb
+from tools.websites_worker import WebsitesWorker
 
 
 class GetWebsitesDetail:
@@ -14,41 +12,38 @@ class GetWebsitesDetail:
     def __init__(self):
         self.zap = ZapBlock(api_key=Config.zap_api_key, local_proxy_ip=Config.zap_proxy_ip,
                             local_proxy_port=Config.zap_proxy_port)
-        self.database = Config.database_local
-        self.user = Config.user_local
-        self.password = Config.password_local
-        self.host = Config.host_local
-        self.port = Config.port_local
-        self.domains_table_name = Config.domains_table_name_local
-        self.websites_table_name = Config.websites_table_name_local
+        self.database_name = Config.database_name
+        self.domains_table_name = Config.domains_table_name
+        self.websites_table_name = Config.websites_table_name
 
     def run(self):
-        console(__name__, "connecting PostgreSQL", self.host + ":" + self.port)
+        # 初始化客户端
+        worker_obj = WebsitesWorker()
+        worker_obj.get_websites_detail_job_info(Config.websites_table_name)
 
+        console(__name__, "connecting", self.database_name)
         # 查询数据用
-        sqldb_query = Psqldb(database=self.database, user=self.user,
-                             password=self.password, host=self.host, port=self.port)
-
-        console(__name__, "PostgreSQL", "connected")
+        sqldb_query = Sqldb(self.database_name)
+        console(__name__, self.database_name, "connected")
 
         # 当前行数
         data_index = 0
 
-        # target=是否为扫描目标, list_times=port扫描次数, time=数据更新的日期时间
+        # target=是否为扫描目标, list_times=zap扫描次数，synced=是否已经与服务器端postgresql同步
         sql_str = "SELECT count(domain) FROM " + self.domains_table_name + \
-                  " WHERE target=1 AND synced=1 AND org_name LIKE %s"
-        sql_value = ("%公司",)
+                  " WHERE worker_id=? AND target=1 AND synced=1"
+        sql_value = (worker_obj.id,)
         result_count = sqldb_query.fetchone(sql_str, sql_value)
         # 总行数
         data_total = int(result_count[0])
         # 关闭数据库
         sqldb_query.close()
 
-        # 打印总ip数量
+        # 打印目标domain数量
         console(__name__, "target domain count", str(data_total))
 
         # 每页数据数量
-        page_size = 1
+        page_size = 10
 
         # 页码
         page_index = 0
@@ -57,75 +52,73 @@ class GetWebsitesDetail:
         loop_flag = True
 
         # 从websites_detail表中，分页读取domain，用zap扫描
+        # 因为扫描一次的速度较慢，所以这里的分页其实没有什么用处，复制粘贴来的代码，索性不改了
         while loop_flag:
-            try:
-                # 分页读取，表ips_all里的数据，筛选"公司"的ip
-                sql_str = "SELECT domain FROM " + self.domains_table_name + \
-                          " WHERE target=1 AND synced=1 AND org_name LIKE %s " \
-                          " ORDER BY scan_times ASC, id ASC LIMIT %s OFFSET %s*%s"
+            # 根据wordker_id，筛选出目标
+            sql_str = "SELECT domain FROM " + self.domains_table_name + \
+                      " WHERE worker_id=? AND target=1 AND synced=1 " \
+                      " ORDER BY scan_times ASC, id ASC LIMIT ? OFFSET ?*?"
 
-                sql_value = ("%公司", page_size, page_index, page_size)
+            sql_value = (worker_obj.id, page_size, page_index, page_size)
 
-                # 查询数据用
-                sqldb_query = Psqldb(database=self.database, user=self.user,
-                                     password=self.password, host=self.host, port=self.port)
-                result_query = sqldb_query.fetchall(sql_str, sql_value)
+            # 查询数据用
+            sqldb_query = Sqldb(self.database_name)
+            result_query = sqldb_query.fetchall(sql_str, sql_value)
 
-                if result_query and len(result_query) > 0:
-                    domains_list = []
-                    for domain_tmp in result_query:
-                        domains_list.append(domain_tmp[0])
+            if result_query and len(result_query) > 0:
+                # 缓存到list里
+                domains_list = []
+                for domain_tmp in result_query:
+                    domains_list.append(domain_tmp[0])
 
+                # 关闭数据库
+                sqldb_query.close()
+
+                # domains_list
+                for domain_item in domains_list:
+                    # 测试用：
+                    # domain_item = 'http://192.168.31.1/'
+                    # 从数据库里读取domains，扫描，html报告的结果存入数据库
+                    str_html = self.zap.single_scan(target_url=domain_item)
+
+                    # 更新数据用
+                    sqldb_update = Sqldb(self.database_name)
+
+                    # 生成时间字符串
+                    datetime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+
+                    if str_html and len(str_html) > 0:
+                        # 扫描结果，insert到domains_list表
+                        insert_sql_str = "INSERT INTO " + self.websites_table_name + \
+                                         " (domain,detail,synced,time) VALUES (?,?,0,?)"
+                        insert_sql_value = (domain_item, str_html, datetime)
+                        sqldb_update.execute_non_query(insert_sql_str, insert_sql_value)
+                        # 打印扫描到的端口
+                        console(__name__, domain_item, str(len(str_html)))
+
+                    # 更新扫描次数
+                    # 序号自增
+                    data_index = data_index + 1
+                    # 扫描次数自增+1
+                    # 同步
+                    update_sql_str = "UPDATE " + self.domains_table_name + \
+                                     " SET scan_times=scan_times+1,synced=0,time=? WHERE domain=?"
+                    update_sql_value = (datetime, domain_item)
+                    sqldb_update.execute_non_query(update_sql_str, update_sql_value)
+
+                    # 提交数据
+                    sqldb_update.commit()
                     # 关闭数据库
-                    sqldb_query.close()
+                    sqldb_update.close()
 
-                    # domains_list
-                    for domain_item in domains_list:
-                        # 从数据库里读取domains，扫描，html报告的结果存入数据库
-                        str_html = self.zap.single_scan(target_url=domain_item)
+                    # 打印进度
+                    console_progress(data_index, data_total, __name__)
 
-                        # 更新数据用
-                        sqldb_update = Psqldb(database=self.database, user=self.user,
-                                              password=self.password, host=self.host, port=self.port)
-
-                        if str_html and len(str_html) > 0:
-                            # 扫描结果，insert到domains_list表
-                            insert_sql_str = "INSERT INTO " + self.websites_table_name + \
-                                             " (domain,detail,synced) VALUES (%s,%s,0)"
-                            insert_sql_value = (domain_item, str_html)
-                            sqldb_update.execute_non_query(insert_sql_str, insert_sql_value)
-                            # 打印扫描到的端口
-                            console(__name__, domain_item, str(len(str_html)))
-
-                        # 更新扫描次数
-                        # 序号自增
-                        data_index = data_index + 1
-                        # 扫描次数自增+1
-                        # 同步
-                        update_sql_str = "UPDATE " + self.domains_table_name + \
-                                         " SET scan_times=scan_times+1,synced=0,time=CURRENT_TIMESTAMP WHERE domain=%s"
-                        update_sql_value = (domain_item,)
-                        sqldb_update.execute_non_query(update_sql_str, update_sql_value)
-
-                        # 提交数据
-                        sqldb_update.commit()
-                        # 关闭数据库
-                        sqldb_update.close()
-
-                        # 打印进度
-                        console_progress(data_index, data_total, __name__)
-                else:
-                    loop_flag = False
-                    # 关闭数据库
-                    sqldb_query.close()
-
-            except psycopg2.OperationalError as e:
-                logging.exception(e)
-                console(__name__, "except psycopg2.OperationalError as e")
-            except Exception as e:
-                logging.exception(e)
-                console(__name__, "except Exception as e")
+            else:
+                loop_flag = False
+                # 关闭数据库
+                sqldb_query.close()
+                pass
 
         console(__name__, "jobs", "done!")
-
         pass

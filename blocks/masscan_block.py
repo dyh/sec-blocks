@@ -1,6 +1,6 @@
 # coding=utf-8
+import logging
 import os
-# import logging
 import masscan
 
 from libs.cli_output import console
@@ -9,10 +9,10 @@ from libs.cli_output import console
 class MasscanBlock:
     def __init__(self):
         self.mas = masscan.PortScanner()
-        self.temp_file = "temp_file_masscan.txt"
+        self.temp_file = "masscan_temp_file.txt"
 
         # 不打印debug信息
-        # masscan.logger.setLevel(logging.ERROR)
+        masscan.logger.setLevel(logging.ERROR)
         pass
 
     # 相同端口的批量扫描，传入ip的list，返回 ip-端口 的字典
@@ -46,7 +46,9 @@ class MasscanBlock:
                     pass
                 else:
                     # 其他错误打印出来
+                    logging.exception(e)
                     console(__name__, "error", str(e))
+
         except Exception as e:
             # network is unreachable.
             if "network is unreachable." == str(e):
@@ -55,6 +57,7 @@ class MasscanBlock:
                 pass
             else:
                 # 其他错误打印出来
+                logging.exception(e)
                 console(__name__, "error", str(e))
 
         # 扫描结果存入dict
@@ -62,6 +65,7 @@ class MasscanBlock:
             try:
                 dict_return.update(dict_scan_result_tmp["scan"])
             except Exception as e:
+                logging.exception(e)
                 console(__name__, "error", str(e))
                 pass
         pass
@@ -98,6 +102,7 @@ class MasscanBlock:
                         pass
                     else:
                         # 其他错误打印出来
+                        logging.exception(e)
                         console(__name__, target_ip_tmp, str(e))
 
             except Exception as e:
@@ -108,6 +113,7 @@ class MasscanBlock:
                     pass
                 else:
                     # 其他错误打印出来
+                    logging.exception(e)
                     console(__name__, target_ip_tmp, str(e))
 
             # 扫描结果是open还是close，还是什么
@@ -118,6 +124,7 @@ class MasscanBlock:
                     # for ip_result, item_result in dict_scan_result_tmp["scan"].items():
                     #     dict_return[ip_result] = item_result["tcp"]
                 except Exception as e:
+                    logging.exception(e)
                     console(__name__, target_ip_tmp, str(e))
                     pass
 

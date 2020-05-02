@@ -2,7 +2,7 @@
 # sec-blocks
 Security Blocks - 安全积木
 
-像搭建积木一样刷SRC
+像搭建积木一样检测网络安全
 
 ```
  ____            ____  _            _        
@@ -14,7 +14,7 @@ Security Blocks - 安全积木
 
 usage: sec-blocks.py [-h] [-l] [-d] [-w] [-s] [-ti] [-td]
 
-SecBlocks V0.0.1
+SecBlocks V0.0.2
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -23,60 +23,62 @@ optional arguments:
   -w, --websites_detail
                         get detail of websites
   -s, --database_sync   synchronize remote postgresql
-  -ti, --txtfile_ip_to_database
-                        insert [ip] into postgresql
-  -td, --txtfile_domain_to_database
-                        insert [domain] into postgresql
+  -ti, --txt_ip_to_db   insert [ip] into sqlite
+  -td, --txt_domain_to_db
+                        insert [domain] into sqlite
 ```
 
-
 ### 如何使用
-0. 在kali linux下，用conda配置运行环境
+1. 安装，在Raspberry Pi或kali linux中
     ```
-    conda env create -f conda-export.yaml
-    ```
-
-1. 启动kali linux自带的PostgreSQL数据库，并创建表结构
-    ```
-    数据库结构文件：postgresql_table_structs.sql
+    pip3 install python-masscan
+    pip3 install python-nmap
+    pip3 install owasp-zap-v2-4   
     ```
 
-2. 下载补天公益SRC列表
+2. 下载SRC列表到"sec-blocks"目录
     ```
     https://github.com/m4yfly/butian-src-domains/raw/master/files/out/targets.txt
     ```
 
-3. 更改配置文件
+3. 将SRC的IP导入数据库
     ```
-    config.py
-    ```
-
-4. 将SRC的IP导入数据库
-    ```
-    python sec-blocks.py -ti
-    ```
-   
-5. 扫描SRC的开放端口
-    ```
-    python sec-blocks.py -l
+    python3 sec-blocks.py -ti
     ```
 
-6. 扫描SRC的开放端口的详细信息
+4. 将SRC的域名导入数据库
     ```
-    python sec-blocks.py -d
+    python3 sec-blocks.py -td
     ```
 
-7. 将SRC的域名导入数据库
+5. 扫描SRC的开放端口列表
     ```
-    python sec-blocks.py -td
+    python3 sec-blocks.py -l
+    ```
+
+6. 扫描SRC的端口详细信息
+    ```
+    python3 sec-blocks.py -d
     ```
    
-8. 扫描SRC的网站详细信息
+7. 扫描SRC的网站详细信息
     ```
-    python sec-blocks.py -w
+    - 启动OWASP ZAP："./zap.sh -daemon -host 0.0.0.0 -port 50501 -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true -config api.key=oh804vn496tg1fpvf2f3bsgldm"
+    - 启动检测：python3 sec-blocks.py -w
+    ```
+
+8. 同时启动多个实例
+    ```
+    如需同时启动多个实例进行检测，请拷贝目录[sec-blocks]中的所有文件到新的文件夹，然后：
+    - 修改配置文件"config.py"的"workers_id_local = 2"
+    - 修改数据库[sqlite.db]-->表[workers]->字段[id]值，增加或者修改一行记录"id=2"
+    - 批量修改数据库[sqlite.db]-->表[domains_list]->字段[worker_id]值。例如，把其中的1000行数据设置为"worker_id=2"
+    - 输入"python sec-blocks.py -w"启动检测
     ```
    
-9. 同步本地PostgreSQL数据到远程的PostgreSQL数据库
+9. 同步本地SQLite数据库到远程的PostgreSQL数据库
     ```
-    python sec-blocks.py -s
+    - 启动kali linux自带的PostgreSQL数据库
+    - 根据数据库结构文件"postgresql_table_structs.sql"创建表结构
+    - 执行python3 sec-blocks.py -s
     ```

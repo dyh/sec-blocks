@@ -10,14 +10,14 @@ from tools.postgresql_sync import PostgresqlSync
 
 
 def options():
-    parser = argparse.ArgumentParser(description='SecBlocks V0.0.1')
+    parser = argparse.ArgumentParser(description='SecBlocks V0.0.2')
     parser.add_argument("-l", "--ports_list", help='get open ports of targets', action="store_true")
     parser.add_argument("-d", "--ports_detail", help='get detail of ports', action="store_true")
     parser.add_argument("-w", "--websites_detail", help='get detail of websites', action="store_true")
     parser.add_argument("-s", "--database_sync", help='synchronize remote postgresql', action="store_true")
-    parser.add_argument("-ti", "--txtfile_ip_to_database", help='insert [ip] into postgresql',
+    parser.add_argument("-ti", "--txt_ip_to_db", help='insert [ip] into sqlite',
                         action="store_true")
-    parser.add_argument("-td", "--txtfile_domain_to_database", help='insert [domain] into postgresql',
+    parser.add_argument("-td", "--txt_domain_to_db", help='insert [domain] into sqlite',
                         action="store_true")
 
     args = parser.parse_args()
@@ -42,12 +42,12 @@ def options():
         sql_sync = PostgresqlSync()
         sql_sync.run()
         pass
-    elif args.txtfile_ip_to_database:
+    elif args.txt_ip_to_db:
         txtfile_path = "targets.txt"
         ipslist = GetIpsList(txt_filename=txtfile_path)
         ipslist.run()
         pass
-    elif args.txtfile_domain_to_database:
+    elif args.txt_domain_to_db:
         txtfile_path = "targets.txt"
         domainslist = GetDomainsList(txt_filename=txtfile_path)
         domainslist.run()

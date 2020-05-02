@@ -1,4 +1,6 @@
 # coding=utf-8
+import logging
+
 import nmap
 
 from libs.cli_output import console
@@ -37,6 +39,7 @@ class NmapBlock:
                     pass
                 else:
                     # 其他错误打印出来
+                    logging.exception(e)
                     console(__name__, target_ip_tmp, str(e))
 
             # 扫描结果是open还是close，还是什么
@@ -46,6 +49,7 @@ class NmapBlock:
                     dict_return.update(dict_scan_result_tmp["scan"])
                 except Exception as e:
                     console(__name__, target_ip_tmp, str(e))
+                    logging.exception(e)
                     pass
 
         return dict_return
