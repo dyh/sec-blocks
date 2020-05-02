@@ -487,6 +487,11 @@ class ZapBlock:
             except Exception as e:
                 logging.exception(e)
                 console(__name__, "Active Scan exception", str(e))
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> origin/master
 
         # Give the passive scanner a chance to finish
         time.sleep(5)
