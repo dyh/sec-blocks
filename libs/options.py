@@ -7,6 +7,7 @@ from tools.get_ports_detail import GetPortsDetail
 from tools.get_ports_list import GetPortsList
 from tools.get_websites_detail import GetWebsitesDetail
 from tools.postgresql_sync import PostgresqlSync
+from tools.websites_worker import WebsitesWorker
 
 
 def options():
@@ -19,6 +20,8 @@ def options():
                         action="store_true")
     parser.add_argument("-td", "--txt_domain_to_db", help='insert [domain] into sqlite',
                         action="store_true")
+    parser.add_argument("-wp", "--worker_progress", help='show all progress of workers', action="store_true")
+
 
     args = parser.parse_args()
 
@@ -51,6 +54,11 @@ def options():
         txtfile_path = "targets.txt"
         domainslist = GetDomainsList(txt_filename=txtfile_path)
         domainslist.run()
+        pass
+    elif args.worker_progress:
+        # 显示worker的进度
+        worker_obj = WebsitesWorker()
+        worker_obj.show_workers_progress()
         pass
     else:
         parser.print_help()

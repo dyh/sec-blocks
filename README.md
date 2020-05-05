@@ -63,16 +63,17 @@ optional arguments:
    
 7. 扫描SRC的网站详细信息
     ```
-    - 启动OWASP ZAP："./zap.sh -daemon -host 0.0.0.0 -port 50501 -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true -config api.key=oh804vn496tg1fpvf2f3bsgldm"
+    - 启动 OWASP ZAP 执行：zap.sh -daemon -host 0.0.0.0 -port 50501 -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true -config api.key=oh804vn496tg1fpvf2f3bsgldm
     - 启动检测：python3 sec-blocks.py -w
+    - 查看进度：python3 sec-blocks.py -wp
     ```
 
 8. 同时启动多个实例
     ```
     如需同时启动多个实例进行检测，请拷贝目录[sec-blocks]中的所有文件到新的文件夹，然后：
     - 修改配置文件"config.py"的"workers_id_local = 2"
-    - 修改数据库[sqlite.db]-->表[workers]->字段[id]值，增加或者修改一行记录"id=2"
-    - 批量修改数据库[sqlite.db]-->表[domains_list]->字段[worker_id]值。例如，把其中的1000行数据设置为"worker_id=2"
+    - 修改数据库[sqlite.db]-->表[workers]-->字段[id]值，增加或者修改一行记录"id=2"
+    - 批量修改数据库[sqlite.db]-->表[domains_list]-->字段[worker_id]值。例如，把其中的1000行数据设置为"worker_id=2"
     - 输入"python sec-blocks.py -w"启动检测
     ```
    
