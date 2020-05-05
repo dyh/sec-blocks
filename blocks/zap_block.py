@@ -16,7 +16,7 @@ class ZapBlock:
 
         # MANDATORY. True to create another ZAP session (overwrite the former if the
         # same name already exists), False to use an existing one
-        self.isNewSession = True
+        self.isNewSession = False
         # MANDATORY. ZAP Session name
         self.sessionName = 'SecBlocksSession'
 

@@ -22,7 +22,6 @@ def options():
                         action="store_true")
     parser.add_argument("-wp", "--worker_progress", help='show all progress of workers', action="store_true")
 
-
     args = parser.parse_args()
 
     if args.ports_list:

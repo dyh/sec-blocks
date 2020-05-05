@@ -1,4 +1,6 @@
 # coding=utf-8
+import logging
+import subprocess
 import time
 from blocks.zap_block import ZapBlock
 from config import Config
@@ -7,19 +9,71 @@ from libs.sqldb import Sqldb
 from tools.websites_worker import WebsitesWorker
 
 
-class GetWebsitesDetail:
+# 重启zap的docker
+def restart_docker_zap(docker_name):
+    subp = subprocess.Popen("docker restart " + docker_name, shell=True)
+    subp.wait()
+    subp.terminate()
+    pass
 
+
+# 截取中间的字符串
+def get_middle_string(str_content='', begin='', end=''):
+    start = str_content.find(begin)
+    if start >= 0:
+        start += len(begin)
+        end = str_content.find(end, start)
+        if end >= 0:
+            return str_content[start:end].strip()
+        else:
+            return ''
+
+
+class GetWebsitesDetail:
     def __init__(self):
-        self.zap = ZapBlock(api_key=Config.zap_api_key, local_proxy_ip=Config.zap_proxy_ip,
-                            local_proxy_port=Config.zap_proxy_port)
+        self.zap = None
         self.database_name = Config.database_name
         self.domains_table_name = Config.domains_table_name
         self.websites_table_name = Config.websites_table_name
 
     def run(self):
+        try:
+            self.scan()
+        except Exception as e:
+            str_exception = str(e)
+            if "Max retries exceeded with url" in str_exception:
+                # 找到端口号
+                # HTTPConnectionPool(host='127.0.0.1', port=50501): Max
+                # retries exceeded with url: http://zap/JSON/core/action/
+                str_begin = 'HTTPConnectionPool(host=\'127.0.0.1\', port='
+                str_end = '): Max retries exceeded with url:'
+                str_port = get_middle_string(str_exception, str_begin, str_end)
+                if str_port and len(str_port) > 0:
+                    docker_container_name = 'zap' + str_port
+                    # 重启zap的docker
+                    restart_docker_zap(docker_container_name)
+                    # 睡眠60秒，等待容器
+                    console(__name__, 'time.sleep(120)')
+                    time.sleep(120)
+                    # 重启程序
+                    self.run()
+                else:
+                    logging.exception(e)
+                    console(__name__, 'restart docker failed!', str(e))
+                pass
+            else:
+                # 其他错误打印出来
+                logging.exception(e)
+                console(__name__, 'zap dead, again...', str_exception)
+                pass
+        pass
+
+    def scan(self):
+        self.zap = ZapBlock(api_key=Config.zap_api_key, local_proxy_ip=Config.zap_proxy_ip,
+                            local_proxy_port=Config.zap_proxy_port)
         # 初始化客户端
         worker_obj = WebsitesWorker()
-        worker_obj.get_websites_detail_job_info(Config.websites_table_name)
+        worker_obj.get_websites_detail_job_info(self.websites_table_name)
 
         console(__name__, "connecting", self.database_name)
         # 查询数据用
