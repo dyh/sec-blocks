@@ -29,11 +29,24 @@ optional arguments:
 ```
 
 ### 如何使用
-1. 安装，在Raspberry Pi或kali linux中
+1. 安装，在Raspberry Pi或kali linux中，使用pip安装如下包
     ```
-    pip3 install python-masscan
-    pip3 install python-nmap
-    pip3 install owasp-zap-v2-4   
+    $pip list
+    Package               Version
+    --------------------- ----------
+    certifi               2020.4.5.1
+    chardet               3.0.4
+    idna                  2.9
+    pip                   20.1.1
+    psycopg2-binary       2.8.5
+    pyfiglet              0.8.post1
+    python-masscan        0.1.6
+    python-nmap           0.6.1
+    python-owasp-zap-v2.4 0.0.16
+    requests              2.23.0
+    setuptools            46.4.0
+    six                   1.15.0
+    urllib3               1.25.9
     ```
 
 2. 下载SRC列表到"sec-blocks"目录
